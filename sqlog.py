@@ -88,21 +88,26 @@ def create_table(conn: sqlite3.Connection) -> None:
       referer         text null,
       user_agent      text null,
       constraint unique_visit unique (remote_addr, time_local, method, url)
+        on conflict ignore
     );
   """)
   conn.execute("create index if not exists ix_time_local on logs (time_local);")
   conn.execute("create index if not exists ix_url        on logs (url);")
-  conn.commit()
+
+
+def insert_row(conn: sqlite3.Connection, row: Row) -> None:
+  conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
 
 
 def main(fname: str) -> None:
   with sqlite3.connect(fname) as conn:
     create_table(conn)
+    conn.commit()
 
     for line in sys.stdin:
-      row = parse_line(line)
-      print(row)
+      insert_row(conn, parse_line(line))
 
+    conn.commit()
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
