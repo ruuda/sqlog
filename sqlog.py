@@ -15,99 +15,101 @@ import typing
 
 from typing import NamedTuple, Optional
 
+
 class Row(NamedTuple):
-  remote_addr: str
-  time_local: str
-  method: Optional[str]
-  url: Optional[str]
-  protocol: Optional[str]
-  status: int
-  body_bytes_sent: int
-  referer: Optional[str]
-  user_agent: Optional[str]
+    remote_addr: str
+    time_local: str
+    method: Optional[str]
+    url: Optional[str]
+    protocol: Optional[str]
+    status: int
+    body_bytes_sent: int
+    referer: Optional[str]
+    user_agent: Optional[str]
 
 
 def parse_line(line: str) -> Row:
-  # Parse the basic line.
-  remote_addr, line = line.split(' - ', 1)
-  remote_user, line = line.split(' [', 1)
-  time_local_ugly, line = line.split('] ', 1)
-  assert line[:1] == '"'
-  # TODO: Can the request include escaped quotes?
-  request, line = line[1:].split('" ', 1)
-  status_str, line = line.split(' ', 1)
-  body_bytes_str, line = line.split(' ', 1)
-  assert line[:1] == '"'
-  # TODO: Can the referer include escaped quotes?
-  referer, line = line[1:].split('" "', 1)
-  # TODO: Can the user agent include escaped quotes?
-  user_agent, tail = line.split('"', 1)
-  assert tail == '\n'
+    # Parse the basic line.
+    remote_addr, line = line.split(' - ', 1)
+    remote_user, line = line.split(' [', 1)
+    time_local_ugly, line = line.split('] ', 1)
+    assert line[:1] == '"'
+    # TODO: Can the request include escaped quotes?
+    request, line = line[1:].split('" ', 1)
+    status_str, line = line.split(' ', 1)
+    body_bytes_str, line = line.split(' ', 1)
+    assert line[:1] == '"'
+    # TODO: Can the referer include escaped quotes?
+    referer_opt, line = line[1:].split('" "', 1)
+    # TODO: Can the user agent include escaped quotes?
+    user_agent_opt, tail = line.split('"', 1)
+    assert tail == '\n'
 
-  # Split request in method, url, and protocol.
-  # Sometimes the request contains utter garbage.
-  method, url, protocol = None, None, None
-  if request.count(' ') == 2:
-    method, request = request.split(' ', 1)
-    url, protocol = request.rsplit(' ', 1)
+    # Split request in method, url, and protocol.
+    # Sometimes the request contains utter garbage.
+    method, url, protocol = None, None, None
+    if request.count(' ') == 2:
+        method, request = request.split(' ', 1)
+        url, protocol = request.rsplit(' ', 1)
 
-  # Nginx logs unknown things as a dash.
-  referer = None if referer == '-' else referer
-  user_agent = None if user_agent == '-' else user_agent
+    # Nginx logs unknown things as a dash.
+    referer = None if referer_opt == '-' else referer_opt
+    user_agent = None if user_agent_opt == '-' else user_agent_opt
 
-  # TODO: Parse time.
-  time_local_iso8601 = time_local_ugly
+    # TODO: Parse time.
+    time_local_iso8601 = time_local_ugly
 
-  return Row(
-    remote_addr,
-    time_local_iso8601,
-    method,
-    url,
-    protocol,
-    int(status_str),
-    int(body_bytes_str),
-    referer,
-    user_agent,
-  )
+    return Row(
+        remote_addr,
+        time_local_iso8601,
+        method,
+        url,
+        protocol,
+        int(status_str),
+        int(body_bytes_str),
+        referer,
+        user_agent,
+    )
 
 
 def create_table(conn: sqlite3.Connection) -> None:
-  """
-  Create the logs table if it does not exist.
-  """
-  conn.execute("""
+    """
+    Create the logs table if it does not exist.
+    """
+    conn.execute("""
     create table if not exists logs
     (
-      remote_addr     text not null,
-      time_local      text not null,
-      method          text null,
-      url             text null,
-      protocol        text null,
-      status          int not null,
-      body_bytes_sent int not null,
-      referer         text null,
-      user_agent      text null,
-      constraint unique_visit unique (remote_addr, time_local, method, url)
+        remote_addr     text not null,
+        time_local      text not null,
+        method          text null,
+        url             text null,
+        protocol        text null,
+        status          int not null,
+        body_bytes_sent int not null,
+        referer         text null,
+        user_agent      text null,
+        constraint unique_visit unique (remote_addr, time_local, method, url)
         on conflict ignore
     );
-  """)
-  conn.execute("create index if not exists ix_time_local on logs (time_local);")
-  conn.execute("create index if not exists ix_url        on logs (url);")
+    """)
+    conn.execute("create index if not exists ix_time on logs (time_local);")
+    conn.execute("create index if not exists ix_url  on logs (url);")
 
 
 def insert_row(conn: sqlite3.Connection, row: Row) -> None:
-  conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
+    conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
 
 
 def main(fname: str) -> None:
-  with sqlite3.connect(fname) as conn:
-    create_table(conn)
-    conn.commit()
+    with sqlite3.connect(fname) as conn:
+        create_table(conn)
+        conn.commit()
 
-    for line in sys.stdin:
-      insert_row(conn, parse_line(line))
+        for line in sys.stdin:
+            insert_row(conn, parse_line(line))
 
-    conn.commit()
+        conn.commit()
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
