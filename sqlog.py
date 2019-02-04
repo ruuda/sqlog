@@ -101,8 +101,9 @@ def create_table(conn: sqlite3.Connection) -> None:
     conn.execute("create index if not exists ix_url  on logs (url);")
 
 
-def insert_row(conn: sqlite3.Connection, row: Row) -> None:
-    conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
+def insert_row(conn: sqlite3.Connection, row: Row) -> int:
+    r = conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
+    return r.rowcount
 
 
 def main(fname: str) -> None:
@@ -110,10 +111,12 @@ def main(fname: str) -> None:
         create_table(conn)
         conn.commit()
 
+        rows_inserted = 0
         for line in sys.stdin:
-            insert_row(conn, parse_line(line))
+            rows_inserted += insert_row(conn, parse_line(line))
 
         conn.commit()
+        print(f'Inserted {rows_inserted} rows.')
 
 
 if __name__ == '__main__':
