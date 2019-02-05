@@ -84,7 +84,7 @@ def parse_line(line: str) -> Row:
         'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
     }[monthname]
 
-    # Format the time as alost ISO 8601. Only leave off the T and just use a
+    # Format the time as almost ISO 8601. Only leave off the T and just use a
     # space. Nobody likes the T. And SQLite is fine either way.
     time_local = f'{year}-{month}-{day} {hour}:{minute}:{second}{offset}'
 

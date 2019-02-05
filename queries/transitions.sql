@@ -2,9 +2,7 @@
 -- the first url, and then later, after a few seconds, visited the second url.
 -- It makes some attempts at excluding bots.
 
-create temporary table
-  visits
-as
+create temporary table visits as
 select
   *
 from
@@ -60,6 +58,7 @@ group by
 order by
   n desc
 limit
-  100;
+  100
+;
 
 drop table visits;
