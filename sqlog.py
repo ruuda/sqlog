@@ -61,12 +61,36 @@ def parse_line(line: str) -> Row:
     referer = None if referer_opt == '-' else referer_opt
     user_agent = None if user_agent_opt == '-' else user_agent_opt
 
-    # TODO: Parse time.
-    time_local_iso8601 = time_local_ugly
+    # Parse the time format "dd/mmm/yyyy:HH:MM:SS +ZZZZ".
+    assert len(time_local_ugly) == 26
+    day = time_local_ugly[:2]
+    assert time_local_ugly[2] == '/'
+    monthname = time_local_ugly[3:6]
+    assert time_local_ugly[6] == '/'
+    year = time_local_ugly[7:11]
+    assert time_local_ugly[11] == ':'
+    hour = time_local_ugly[12:14]
+    assert time_local_ugly[14] == ':'
+    minute = time_local_ugly[15:17]
+    assert time_local_ugly[17] == ':'
+    second = time_local_ugly[18:20]
+    assert time_local_ugly[20] == ' '
+    offset_sign_and_hours = time_local_ugly[21:24]
+    offset_minutes = time_local_ugly[24:26]
+
+    offset = f'{offset_sign_and_hours}:{offset_minutes}'
+    month = {
+        'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+        'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
+    }[monthname]
+
+    # Format the time as alost ISO 8601. Only leave off the T and just use a
+    # space. Nobody likes the T. And SQLite is fine either way.
+    time_local = f'{year}-{month}-{day} {hour}:{minute}:{second}{offset}'
 
     return Row(
         remote_addr,
-        time_local_iso8601,
+        time_local,
         method,
         url,
         protocol,
