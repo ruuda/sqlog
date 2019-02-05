@@ -139,8 +139,11 @@ def main(fname: str) -> None:
         for line in sys.stdin:
             rows_inserted += insert_row(conn, parse_line(line))
 
+            if rows_inserted % 100 == 0:
+                print(f'\rInserted {rows_inserted} rows.', end='', flush=True)
+
         conn.commit()
-        print(f'Inserted {rows_inserted} rows.')
+        print(f'\rInserted {rows_inserted} rows.')
 
 
 if __name__ == '__main__':
