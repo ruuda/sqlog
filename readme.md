@@ -10,3 +10,5 @@ Ingest Nginx logs into a SQLite database for easy querying.
     > group by url
     > order by n desc
     > limit 100
+
+The `queries` directory contains a few interesting queries to run.
