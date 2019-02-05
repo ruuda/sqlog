@@ -145,6 +145,8 @@ def main(fname: str) -> None:
         conn.commit()
         print(f'\rInserted {rows_inserted} rows.')
 
+        conn.execute("analyze")
+        conn.commit()
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
