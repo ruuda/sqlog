@@ -126,15 +126,16 @@ def create_table(conn: sqlite3.Connection) -> None:
     conn.execute("""
     create unique index if not exists ix_unique_visit on logs
     (
-        remote_addr,
+        -- Note that we put the time first, so we can query efficiently on time
+        -- ranges.
         time_local,
+        remote_addr,
         -- Null values do not count towards uniqueness, so index on a non-null
         -- value to ensure that we never insert log lines twice.
         ifnull(method, ''),
         ifnull(url, '')
     )
     """)
-    conn.execute("create index if not exists ix_time on logs (time_local);")
     conn.execute("create index if not exists ix_url  on logs (url);")
 
 
