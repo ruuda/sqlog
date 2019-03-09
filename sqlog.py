@@ -116,18 +116,34 @@ def create_table(conn: sqlite3.Connection) -> None:
         status          int not null,
         body_bytes_sent int not null,
         referer         text null,
-        user_agent      text null,
-        constraint unique_visit unique (remote_addr, time_local, method, url)
-        on conflict ignore
+        user_agent      text null
     );
+    """)
+    # Create a unique index, so that we can import the same logs multiple times,
+    # without creating duplicates. Unfortunately, if the log format has only
+    # second-granularity timestamps, then we cannot record a client repeating
+    # the same request within one second.
+    conn.execute("""
+    create unique index if not exists ix_unique_visit on logs
+    (
+        remote_addr,
+        time_local,
+        -- Null values do not count towards uniqueness, so index on a non-null
+        -- value to ensure that we never insert log lines twice.
+        ifnull(method, ''),
+        ifnull(url, '')
+    )
     """)
     conn.execute("create index if not exists ix_time on logs (time_local);")
     conn.execute("create index if not exists ix_url  on logs (url);")
 
 
 def insert_row(conn: sqlite3.Connection, row: Row) -> int:
-    r = conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
-    return r.rowcount
+    try:
+        r = conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
+        return r.rowcount
+    except sqlite3.IntegrityError:
+        return 0
 
 
 def main(fname: str) -> None:
@@ -135,17 +151,25 @@ def main(fname: str) -> None:
         create_table(conn)
         conn.commit()
 
-        rows_inserted = 0
-        for line in sys.stdin:
-            rows_inserted += insert_row(conn, parse_line(line))
+        n_inserted = 0
+        n_ingested = 0
 
-            if rows_inserted % 100 == 0:
-                print(f'\rInserted {rows_inserted} rows.', end='', flush=True)
+        for line in sys.stdin:
+            inserted_count = insert_row(conn, parse_line(line))
+            n_inserted += inserted_count
+            n_ingested += 1
+
+            if n_ingested % 200 == 0:
+                print(
+                    f'\rRead {n_ingested} lines, inserted {n_inserted}.',
+                    end='',
+                    flush=True
+                )
 
         conn.commit()
-        print(f'\rInserted {rows_inserted} rows.')
+        print(f'\rRead {n_ingested} lines, inserted {n_inserted}.')
 
-        conn.execute("analyze")
+        conn.execute('analyze')
         conn.commit()
 
 if __name__ == '__main__':
