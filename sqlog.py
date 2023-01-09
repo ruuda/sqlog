@@ -11,7 +11,11 @@
 Sqlog: Ingest Nginx logs into SQLite for querying.
 
 Usage:
-  ./sqlog.py log.sqlite < access.log
+  ./sqlog.py --format <format> log.sqlite < access.log
+
+Options:
+  --format COMBINED   Use default Nginx log format
+  --format VCOMBINED  Use Nginx log format with "<vhost>: " prefix
 """
 
 import sys
@@ -22,6 +26,7 @@ from typing import NamedTuple, Optional
 
 
 class Row(NamedTuple):
+    vhost: Optional[str]
     remote_addr: str
     time_local: str
     method: Optional[str]
@@ -33,7 +38,12 @@ class Row(NamedTuple):
     user_agent: Optional[str]
 
 
-def parse_line(line: str) -> Row:
+def parse_line(format: str, line: str) -> Row:
+    vhost: Optional[str] = None
+
+    if format == "VCOMBINED":
+        vhost, line = line.split(': ', 1)
+
     # Parse the basic line.
     remote_addr, line = line.split(' - ', 1)
     remote_user, line = line.split(' [', 1)
@@ -89,6 +99,7 @@ def parse_line(line: str) -> Row:
     time_local = f'{year}-{month}-{day} {hour}:{minute}:{second}{offset}'
 
     return Row(
+        vhost,
         remote_addr,
         time_local,
         method,
@@ -108,6 +119,7 @@ def create_table(conn: sqlite3.Connection) -> None:
     conn.execute("""
     create table if not exists logs
     (
+        vhost           text null,
         remote_addr     text not null,
         time_local      text not null,
         method          text null,
@@ -129,25 +141,26 @@ def create_table(conn: sqlite3.Connection) -> None:
         -- Note that we put the time first, so we can query efficiently on time
         -- ranges.
         time_local,
-        remote_addr,
         -- Null values do not count towards uniqueness, so index on a non-null
         -- value to ensure that we never insert log lines twice.
+        ifnull(vhost, ''),
+        remote_addr,
         ifnull(method, ''),
         ifnull(url, '')
     )
     """)
-    conn.execute("create index if not exists ix_url  on logs (url);")
+    conn.execute("create index if not exists ix_url on logs (url);")
 
 
 def insert_row(conn: sqlite3.Connection, row: Row) -> int:
     try:
-        r = conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
+        r = conn.execute("insert into logs values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
         return r.rowcount
     except sqlite3.IntegrityError:
         return 0
 
 
-def main(fname: str) -> None:
+def main(format: str, fname: str) -> None:
     with sqlite3.connect(fname) as conn:
         create_table(conn)
         conn.commit()
@@ -156,7 +169,7 @@ def main(fname: str) -> None:
         n_ingested = 0
 
         for line in sys.stdin:
-            inserted_count = insert_row(conn, parse_line(line))
+            inserted_count = insert_row(conn, parse_line(format, line))
             n_inserted += inserted_count
             n_ingested += 1
 
@@ -174,8 +187,11 @@ def main(fname: str) -> None:
         conn.commit()
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 4:
         print(__doc__)
         sys.exit(-1)
 
-    main(sys.argv[1])
+    assert sys.argv[1] == "--format"
+    assert sys.argv[2] in ("COMBINED", "VCOMBINED")
+
+    main(sys.argv[2], sys.argv[3])
