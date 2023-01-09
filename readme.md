@@ -2,7 +2,7 @@
 
 Ingest Nginx logs into a SQLite database for easy querying.
 
-    $ ./sqlog.py log.sqlite < access.log
+    $ ./sqlog.py --format COMBINED log.sqlite < access.log
 
     $ sqlite3 log.sqlite
     > select url, count(*) as n
