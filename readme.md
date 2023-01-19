@@ -20,3 +20,21 @@ example like so:
 
 (Sqlite also has `-column`, but it truncates values in combination with
 `-header`.)
+
+-----------
+
+The `data_dir` directory can be used to store multiple *.log* files. 
+
+    $ cp /var/log/nginx/access* ./data_dir    # Copy all access* files from default dir 
+    
+The `data_dir/log_unzipper.sh` can be used if you have gzipped logs;
+use the `--archive-zips` flag to delete the .gz files:
+
+    $ cd data_dir                        # go into data_dir directory
+    $ ./log_unzipper.sh                  # unzip all files
+    $ ./log_unzipper.sh --archive-zips   # unzip + delete zips afterwards
+ 
+The `ingest_access_logs.sh` bash script will loop through all `*.log*`
+files in the data_dir folder and ingest them into the log.sqlite db:
+
+    $ ./ingest_access_logs.sh
