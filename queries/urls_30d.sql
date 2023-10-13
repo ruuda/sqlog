@@ -1,5 +1,6 @@
 select
   count(*) as n,
+  vhost,
   url
 from
   logs
@@ -10,7 +11,7 @@ where
   and url not like '%.woff2'
   and time_local > datetime('now', '-30 days')
 group by
-  url
+  vhost, url
 order by
   n desc
 limit
