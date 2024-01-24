@@ -96,7 +96,7 @@ def parse_line(format: str, line: str) -> Row:
 
     # Format the time as almost ISO 8601. Only leave off the T and just use a
     # space. Nobody likes the T. And SQLite is fine either way.
-    time_local = f'{year}-{month}-{day} {hour}:{minute}:{second}{offset}'
+    time_local = f'{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}{offset}'
 
     return Row(
         vhost,
