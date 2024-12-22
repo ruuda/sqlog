@@ -1,6 +1,7 @@
 select
   count(*) / 90 as requests_per_day,
-  user_agent
+  remote_addr,
+  max(user_agent)
 from
   logs
 where
@@ -10,7 +11,7 @@ where
   and user_agent is not null
   and time_local > datetime('now', '-90 days')
 group by
-  user_agent
+  remote_addr
 order by
   requests_per_day desc
 limit
